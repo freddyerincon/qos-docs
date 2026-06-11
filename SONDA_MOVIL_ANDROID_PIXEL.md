@@ -5,7 +5,7 @@ la app `qos-probe-mobile`, instalada y validada en un Pixel 8 Pro con
 GrapheneOS y Netbird.
 
 **Fecha de deploy y validación:** 2026-06-07
-**Sonda activa:** `mob-358632` (Pixel 8 Pro, IMEI `358632950388262`)
+**Sonda activa:** `358632950388` (Pixel 8 Pro, IMEI `358632950388262`)
 **Status:** ✅ Operativa — enviando mediciones al backend
 
 ---
@@ -44,9 +44,9 @@ permisos y servicios de Android 15 (`targetSDK=35`).
 | **Connectivity** | Netbird VPN (cliente embebido) → IP `100.18.198.155` |
 | **Netbird FQDN** | `pixel-probe.netbird.teamco.com.co` |
 | **Backend** | https://qos.teamco.com.co (ALB AWS, TLS 1.3) |
-| **Probe ID** | `mob-358632` (prefijo `mob-` + primeros 7 dígitos del IMEI) |
+| **Probe ID** | `358632950388` (IMEI truncado a 12 chars numéricos para caber en VARCHAR(12)) |
 | **IMEI** | `358632950388262` (15 dígitos, registrado en la DB) |
-| **API Key** | `b4b2af60-2a2c-4f9a-bf6e-9e2cf2a78e3b` (sha-256 en `probes.api_key_hash`) |
+| **API Key** | `eea68571-f2a7-4234-b858-199623c17356` (sha-256 en `probes.api_key_hash`, regenerada 2026-06-11) |
 
 > ⚠️ **Pendiente de schema:** la columna `probes.probe_id` es `VARCHAR(12)`.
 > Se usó el prefijo `mob-` + 7 dígitos para caber en el constraint. Una
@@ -103,7 +103,7 @@ qos-probe-mobile/
 ```json
 {
   "schema_version": "1.0",
-  "probe_id": "mob-358632",
+  "probe_id": "358632950388",
   "timestamp_utc": "2026-06-07T19:03:50.123Z",
   "measurement_id": "uuid-v4",
   "cycle_id": "uuid-v4",
@@ -385,14 +385,14 @@ Como el `probe_id VARCHAR(12)` no admite IMEI (15 dígitos), se usó el prefijo
 
 ```sql
 INSERT INTO probes (probe_id, api_key_hash, name, cluster, org_id, status)
-VALUES ('mob-358632', '<sha256 de la api_key>', 'Pixel 8 Pro - Sonda Móvil',
+VALUES ('358632950388', '<sha256 de la api_key>', 'Pixel 8 Pro - Sonda Móvil',
         'default', NULL, 'active');
 ```
 
 Y config v1 (móvil):
 ```sql
 INSERT INTO probe_configs (probe_id, version, config, created_at)
-VALUES ('mob-358632', 1, '{
+VALUES ('358632950388', 1, '{
   "version": 1,
   "test_interval_sec": 600,
   "quick_check_interval_sec": 300,
@@ -408,8 +408,8 @@ adb -s 38111FDJG00E5R shell "am start \
   -a com.teamco.qosprobe.ACTION_CONFIGURE \
   -n com.teamco.qosprobe.debug/com.teamco.qosprobe.MainActivity \
   --es api_url 'https://qos.teamco.com.co' \
-  --es api_key 'b4b2af60-2a2c-4f9a-bf6e-9e2cf2a78e3b' \
-  --es probe_id 'mob-358632'"
+  --es api_key 'eea68571-f2a7-4234-b858-199623c17356' \
+  --es probe_id '358632950388'"
 ```
 
 El intent es procesado por `MainActivity.handleIntent`:
@@ -452,13 +452,13 @@ adb -s 38111FDJG00E5R logcat --pid=$(adb -s 38111FDJG00E5R shell pidof com.teamc
 
 # Backend EC2
 ssh -i keys/ec2-api.pem ubuntu@54.84.140.23 \
-  "sudo journalctl -u qos-api-server -f | grep mob-358632"
+  "sudo journalctl -u qos-api-server -f | grep 358632950388"
 
 # DB
 PGPASSWORD='***' psql -h qos-postgresql.c018awm00ogh.us-east-1.rds.amazonaws.com \
   -U postgres -d qosprobe -c \
   "SELECT probe_id, isp, technology, public_ip, last_seen_at
-   FROM probes WHERE probe_id='mob-358632';"
+   FROM probes WHERE probe_id='358632950388';"
 ```
 
 ---
@@ -470,7 +470,7 @@ PGPASSWORD='***' psql -h qos-postgresql.c018awm00ogh.us-east-1.rds.amazonaws.com
 ```
 probe_id  |           name            | status |      isp       | technology |      last_seen      
 ------------+---------------------------+--------+----------------+------------+---------------------
- mob-358632 | Pixel 8 Pro - Sonda Móvil | active | Claro Colombia | UMTS       | 2026-06-07 19:03:50
+ 358632950388 | Pixel 8 Pro - Sonda Móvil | active | Claro Colombia | LTE        | 2026-06-11 21:03:18
 ```
 
 ### 7.2 Métricas operativas
@@ -490,13 +490,13 @@ probe_id  |           name            | status |      isp       | technology |  
 ### 7.3 Patrón de uso
 
 ```
-06:43:00  ConfigStore: Config saved: probeId=mob-358632
+06:43:00  ConfigStore: Config saved: probeId=358632950388
 06:43:00  MainActivity: Config applied via intent
 06:43:00  Service: Config updated via intent
-06:43:01  Service: Components initialized, probeId=mob-358632
+06:43:01  Service: Components initialized, probeId=358632950388
 06:43:01  Service: All collectors started
 06:43:01  Radio sample: UMTS, -66dBm, pending=1
-06:43:30  Auth: intercept: Bearer=b4b2af60... url=/api/v1/measurements
+06:43:30  Auth: intercept: Bearer=eea68571... url=/api/v1/measurements
 06:43:30  Backend: POST → 200
 06:43:30  Backend: Batch upload: 6 OK, 0 failed
 ```
@@ -565,7 +565,7 @@ adb -s <serial> shell am start \
   -n com.teamco.qosprobe.debug/com.teamco.qosprobe.MainActivity \
   --es api_url 'https://qos.teamco.com.co' \
   --es api_key '<KEY>' \
-  --es probe_id 'mob-358632'
+  --es probe_id '358632950388'
 
 # Ver logs en vivo
 adb -s <serial> logcat --pid=$(adb -s <serial> shell pidof com.teamco.qosprobe.debug) \
@@ -580,19 +580,19 @@ adb -s <serial> exec-out screencap -p > screen.png
 ```bash
 # Logs en EC2
 ssh -i keys/ec2-api.pem ubuntu@54.84.140.23 \
-  "sudo journalctl -u qos-api-server -f | grep mob-358632"
+  "sudo journalctl -u qos-api-server -f | grep 358632950388"
 
 # DB queries
 PGPASSWORD='***' psql -h qos-postgresql.c018awm00ogh.us-east-1.rds.amazonaws.com \
   -U postgres -d qosprobe -c "
     SELECT probe_id, isp, technology, public_ip, last_seen_at
-    FROM probes WHERE probe_id='mob-358632';
+    FROM probes WHERE probe_id='358632950388';
   "
 
 PGPASSWORD='***' psql -h qos-postgresql.c018awm00ogh.us-east-1.rds.amazonaws.com \
   -U postgres -d qosprobe -c "
     SELECT iface_name, latitude, longitude, isp, tech, date
-    FROM measurements WHERE probe_id='mob-358632'
+    FROM measurements WHERE probe_id='358632950388'
     ORDER BY date DESC LIMIT 10;
   "
 ```
